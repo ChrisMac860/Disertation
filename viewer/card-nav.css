@@ -1,0 +1,109 @@
+.rb-cardnav {
+  max-width: 1100px;
+  margin: 0 auto 16px;
+  padding: 8px 12px 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rb-cardnav__bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 4px 0;
+}
+
+.rb-cardnav__toggle {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rb-cardnav__toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+.rb-burger {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.rb-burger span {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: currentColor;
+  border-radius: 2px;
+  transition: transform 0.22s ease, opacity 0.18s ease;
+}
+.is-open .rb-burger span:nth-child(1) { transform: translateY(6px) rotate(45deg); }
+.is-open .rb-burger span:nth-child(2) { opacity: 0; }
+.is-open .rb-burger span:nth-child(3) { transform: translateY(-6px) rotate(-45deg); }
+
+.rb-cardnav__panel {
+  overflow: hidden;
+  height: 0;
+  transition: height 420ms cubic-bezier(0.6, 0.04, 0.24, 1);
+}
+
+.rb-cardnav__inner {
+  padding: 8px 4px 10px;
+}
+
+.rb-cardnav__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.rb-cardnav__card {
+  display: block;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--rb-card-accent, #0b0b0c);
+  color: #fff;
+  text-decoration: none;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.22);
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease,
+    opacity 0.18s ease;
+  border: 1px solid transparent;
+  opacity: 0;
+}
+.rb-cardnav__card:hover { transform: translateY(-2px); box-shadow: 0 16px 30px rgba(0,0,0,0.24); }
+.rb-cardnav__card:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.rb-cardnav__card.is-active { border-color: var(--accent); }
+.is-open .rb-cardnav__card { opacity: 1; }
+
+.rb-cardnav__title {
+  font-size: 1.12rem;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.rb-cardnav__desc {
+  font-size: 0.98rem;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+@media (max-width: 900px) {
+  .rb-cardnav {
+    margin: 0 auto 12px;
+    padding: 8px 10px 10px;
+  }
+  .rb-cardnav__grid {
+    grid-template-columns: 1fr;
+  }
+}

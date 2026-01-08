@@ -3,135 +3,69 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Mekong Station Visualiser</title>
-    <!-- Inline favicon to avoid 404s -->
+    <title>Mekong Station Visualiser - Home</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' ry='12' fill='%230a84ff'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-family='Segoe UI,Arial' font-size='34' fill='white'%3EMS%3C/text%3E%3C/svg%3E" />
     <link rel="stylesheet" href="style.css" />
-    <!-- Plotly for charts -->
-    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    <!-- PapaParse for CSV parsing -->
-    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-    <!-- JSZip to read ZIPs in browser -->
-    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-    <script defer src="app.js"></script>
+    <link rel="stylesheet" href="card-nav.css" />
+    <script defer src="card-nav.js"></script>
   </head>
   <body>
     <header class="site-header">
-      <div class="title">
-        <h1>Mekong Station Visualiser</h1>
-        <p class="subtitle">Local, offline viewer</p>
+      <div class="header-top">
+        <div class="title">
+          <h1>Welcome to the Mekong Station Visualiser</h1>
+          <p class="subtitle">Landing hub for the viewer tools</p>
+        </div>
+        <div class="privacy-note" title="Runs entirely in your browser.">Local only. No uploads.</div>
       </div>
-      <div class="privacy-note" title="Runs entirely in your browser."><a href="compare.html">Compare two stations</a> · Local only. No uploads.</div>
     </header>
 
-    <main class="layout">
-      <aside class="controls card" aria-label="Controls panel">
-        <section>
-          <h2 class="section-title">Data source</h2>
-          <div class="field">
-            <button id="autoReloadBtn" type="button">Auto-load from data/</button>
-            <small class="muted">Tries to read CSVs under <code>data/</code> using the local web server.</small>
-          </div>
-          <div class="field">
-            <button id="folderBtn" type="button">Pick data folder (no upload)</button>
-            <small class="muted">Uses your browser’s folder access (stays local).</small>
-          </div>
-          <div class="field">
-            <label for="metaInput">Optional station metadata CSV</label>
-            <input id="metaInput" type="file" accept=".csv" />
-            <small class="muted">Columns: station_id, display_name, lat, lon, river, notes</small>
-          </div>
-          <details>
-            <summary class="muted">Advanced: Upload ZIP or CSV files</summary>
-            <div class="field">
-              <input id="zipInput" type="file" accept=".zip" />
-              <small class="muted">Single ZIP of the <code>DATA/</code> folder.</small>
-            </div>
-            <div class="field">
-              <input id="csvInput" type="file" accept=".csv" multiple />
-              <small class="muted">Select multiple CSVs at once.</small>
-            </div>
-          </details>
-          <div class="status" id="status">No data loaded.</div>
-        </section>
-
-        <hr />
-
-        <section>
-          <h2 class="section-title">Filters</h2>
-          <div class="field cols-2">
-            <label class="checkbox"><input id="kind-salinity" type="checkbox" checked> Salinity</label>
-            <label class="checkbox"><input id="kind-water_level" type="checkbox" checked> Water level</label>
-            <label class="checkbox"><input id="kind-discharge" type="checkbox" checked> Discharge</label>
-            <label class="checkbox"><input id="kind-rain" type="checkbox" checked> Rain</label>
-          </div>
-
-          <div class="field">
-            <label for="stationSearch">Stations</label>
-            <input id="stationSearch" type="search" placeholder="Search stations" />
-            <select id="stationSelect" multiple size="8" aria-label="Stations multi-select"></select>
-          </div>
-
-          <div class="field cols-2">
-            <div>
-              <label for="dateStart">Start date</label>
-              <input id="dateStart" type="date" />
-            </div>
-            <div>
-              <label for="dateEnd">End date</label>
-              <input id="dateEnd" type="date" />
-            </div>
-          </div>
-
-          <div class="field cols-2">
-            <div>
-              <label for="thr3">Salinity threshold ≥3 g/L</label>
-              <input id="thr3" type="number" step="0.1" value="3.0" />
-            </div>
-            <div>
-              <label for="thr4">Salinity threshold ≥4 g/L</label>
-              <input id="thr4" type="number" step="0.1" value="4.0" />
-            </div>
-          </div>
-          <div class="field">
-            <label class="checkbox"><input id="markExceed" type="checkbox"> Mark exceedances on plots</label>
-          </div>
-
-          <div class="buttons">
-            <button id="resetBtn" type="button">Reset filters</button>
-            <button id="exportBtn" type="button" disabled>Export filtered CSV</button>
-          </div>
-        </section>
-      </aside>
-
-      <section class="main">
-        <div class="card" id="overviewCard">
-          <h2>Overview</h2>
-          <div id="overviewTableWrap" class="table-wrap" aria-live="polite"></div>
+    <main class="layout layout--home">
+      <header class="rb-cardnav" data-rb-cardnav>
+        <div class="rb-cardnav__bar">
+          <button class="rb-cardnav__toggle" type="button" aria-label="Open menu" aria-expanded="false">
+            <span class="rb-burger" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </span>
+          </button>
         </div>
 
-        <div class="card">
-          <h2>Time series</h2>
-          <div class="charts-grid">
-            <div class="chart" id="chart-salinity" aria-label="Salinity chart"></div>
-            <div class="chart" id="chart-water_level" aria-label="Water level chart"></div>
-            <div class="chart" id="chart-discharge" aria-label="Discharge chart"></div>
-            <div class="chart" id="chart-rain" aria-label="Rain chart"></div>
+        <div class="rb-cardnav__panel" data-rb-panel>
+          <div class="rb-cardnav__inner" data-rb-inner>
+            <div class="rb-cardnav__grid" data-rb-grid></div>
+          </div>
+        </div>
+      </header>
+
+      <section class="home">
+        <div class="card hero-card">
+          <div class="hero-copy">
+            <p class="eyebrow">Start here</p>
+            <h2>Your offline base for river station insights</h2>
+            <p class="muted">Pick a tool to explore datasets or compare two stations side by side. You can add more copy and visuals here later.</p>
+          </div>
+          <div class="home-actions">
+            <a class="button primary" href="viewer.html">Open main viewer</a>
+            <a class="button ghost" href="compare.html">Go to 2-station compare</a>
           </div>
         </div>
 
-        <div class="card">
-          <h2>Diagnostics</h2>
-          <div class="chart" id="chart-missingness" aria-label="Missingness chart"></div>
-          <h3>Salinity exceedances</h3>
-          <div id="exceedTableWrap" class="table-wrap"></div>
-
-          <!-- Tiny test harness (toggle to inject mock data) -->
-          <details class="mock">
-            <summary>Load tiny mock dataset (for testing)</summary>
-            <button id="mockBtn" type="button">Generate mock data</button>
-            <small class="muted">Creates 3 fake stations × 2 kinds × 7 days.</small>
-          </details>
+        <div class="home-grid">
+          <article class="card home-card">
+            <p class="eyebrow">Main viewer</p>
+            <h3>Explore and filter</h3>
+            <p class="muted">Load CSVs or ZIPs locally, filter by station and kind, and export cleaned subsets when you are ready.</p>
+          </article>
+          <article class="card home-card">
+            <p class="eyebrow">Comparison</p>
+            <h3>Overlay two stations</h3>
+            <p class="muted">Graph variables from two locations on the same axes to quickly spot divergence and exceedances.</p>
+          </article>
+          <article class="card home-card">
+            <p class="eyebrow">Bring your content</p>
+            <h3>Fill me in later</h3>
+            <p class="muted">Add project notes, imagery, or quick-start steps here when you are ready to round out the landing page.</p>
+          </article>
         </div>
       </section>
     </main>

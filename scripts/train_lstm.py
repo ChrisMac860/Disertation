@@ -1,4 +1,6 @@
-﻿import argparse, math, random
+"""Train LSTM baselines on station data."""
+
+import argparse, math, random
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -37,7 +39,6 @@ def make_supervised(ts: pd.DataFrame, window=24, horizon=24):
         x.append(v[i-window:i])
         y.append(v[i+horizon])
         t.append(ts["datetime"].iloc[i+horizon])
-    # Return timestamps as a Series so .iloc slicing is available downstream
     t_series = pd.Series(pd.to_datetime(t), name="datetime")
     return np.stack(x), np.array(y, dtype=np.float32), t_series
 
@@ -103,16 +104,13 @@ def main(root, stations, horizons, window, epochs, seed):
         ts["salinity"] = pd.to_numeric(ts["salinity"], errors="coerce"); ts = ts.dropna()
         if len(ts) < window + max(horizons) + 50: continue
 
-        # chronological split
         n = len(ts); i_test = int(n*0.85); i_val = int(n*0.70)
         for h in horizons:
             X, y, t = make_supervised(ts, window=window, horizon=h)
-            # align splits after making sequences
             n2 = len(X); i_test2 = max(1, int(n2*0.85)); i_val2 = max(1, int(n2*0.70))
             Xtr, ytr = X[:i_val2], y[:i_val2]
             Xva, yva = X[i_val2:i_test2], y[i_val2:i_test2]
             Xte, yte = X[i_test2:], y[i_test2:]
-            # standardise by train and keep float32 for Torch
             mu, sd = Xtr.mean(), Xtr.std() if Xtr.std()>0 else 1.0
             Xtr = ((Xtr - mu)/sd).astype(np.float32)
             Xva = ((Xva - mu)/sd).astype(np.float32)
@@ -122,7 +120,6 @@ def main(root, stations, horizons, window, epochs, seed):
             with torch.no_grad():
                 yhat = model(torch.from_numpy(Xte).unsqueeze(-1)).numpy()
 
-            # save preds
             out_pred = pd.DataFrame({"datetime": t.iloc[-len(yhat):].astype(str),
                                      "y_true": yte, "y_pred": yhat})
             out_pred.to_csv(reports / f"pred_{fp.stem}_h{h}.csv", index=False)

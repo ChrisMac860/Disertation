@@ -1,4 +1,6 @@
-﻿from pathlib import Path
+"""Build scorecard summaries from report outputs."""
+
+from pathlib import Path
 import pandas as pd
 
 ROOT = r"C:\Users\User\Desktop\Disertation"

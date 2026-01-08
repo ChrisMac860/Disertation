@@ -1,13 +1,4 @@
-/*
-  Compare Two Stations — client-side page
-  - Load data identically to main viewer
-  - Select Station A and B and overlay per-variable charts
-  - Optional salinity exceedance markers (>=3, >=4 g/L)
-*/
-
-// -----------------------------
-// Utilities
-// -----------------------------
+/* Compare viewer script; client-side only. */
 
 const ui = {
   zipInput: document.getElementById('zipInput'),
@@ -38,12 +29,26 @@ const ui = {
   exportBtn: document.getElementById('exportBtn'),
 
   charts: {
-    salinity: document.getElementById('chartC-salinity'),
-    water_level: document.getElementById('chartC-water_level'),
-    discharge: document.getElementById('chartC-discharge'),
-    rain: document.getElementById('chartC-rain'),
+    salinity: {
+      a: document.getElementById('chartC-salinity-a'),
+      b: document.getElementById('chartC-salinity-b'),
+    },
+    water_level: {
+      a: document.getElementById('chartC-water_level-a'),
+      b: document.getElementById('chartC-water_level-b'),
+    },
+    discharge: {
+      a: document.getElementById('chartC-discharge-a'),
+      b: document.getElementById('chartC-discharge-b'),
+    },
+    rain: {
+      a: document.getElementById('chartC-rain-a'),
+      b: document.getElementById('chartC-rain-b'),
+    },
   },
 };
+
+const ROOT_PREFIX = window.location.pathname.includes('/viewer/') ? '../' : '';
 
 const VALUE_COLUMN_HINTS = {
   salinity: ['sal', 'salinity', 'ppt', 'psu', 'g/l', 'g\\l', 'ec', 'ms/cm', 'value'],
@@ -77,9 +82,6 @@ function classifyKind(pathOrName){ const s=(pathOrName||'').toLowerCase(); if(s.
 function extractStationId(filename){ const name=filename.replace(/^[^/\\]*[\\/]/g,'').replace(/\.[^.]+$/,''); const bracket=name.match(/\[([^\]]+)\]/); if(bracket&&bracket[1]) return bracket[1].replace(/\s+/g,''); const m=name.match(/^(.*)_\d{4}_\d{4}$/); if(m) return m[1]; return name; }
 function downloadCSV(filename, rows){ const header=['datetime','station_id','display_name','kind','value']; const lines=[header.join(',')]; for(const r of rows){ const vals=[r.datetimeISO,r.station_id,(r.display_name||r.station_id),r.kind,(r.value??'')]; lines.push(vals.map(v=>{ if(v==null) return ''; const s=String(v); return s.includes(',')||s.includes('"')? '"'+s.replace(/"/g,'""')+'"':s; }).join(',')); } const blob=new Blob([lines.join('\n')],{type:'text/csv;charset=utf-8;'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; a.click(); URL.revokeObjectURL(url); }
 
-// -----------------------------
-// Global state
-// -----------------------------
 
 const state = {
   rows: [],
@@ -103,9 +105,6 @@ const STORAGE_KEY = 'msv_compare_state_v1';
 function saveState(){ try{ const obj={ selectedKinds:Array.from(state.selectedKinds), stationA:state.stationA, stationB:state.stationB, filterStart: state.filterStart? ymd(state.filterStart): null, filterEnd: state.filterEnd? ymd(state.filterEnd): null, thr3: state.thr3, thr4: state.thr4, markExceed: state.markExceed, }; localStorage.setItem(STORAGE_KEY, JSON.stringify(obj)); }catch{} }
 function loadState(){ try{ const obj=JSON.parse(localStorage.getItem(STORAGE_KEY)||'null'); if(!obj) return; state.selectedKinds=new Set(obj.selectedKinds||['salinity','water_level','discharge','rain']); state.stationA=obj.stationA||null; state.stationB=obj.stationB||null; if(obj.filterStart) state.filterStart=new Date(obj.filterStart); if(obj.filterEnd) state.filterEnd=new Date(obj.filterEnd); state.thr3=Number(obj.thr3??3.0); state.thr4=Number(obj.thr4??4.0); state.markExceed=!!obj.markExceed; }catch{} }
 
-// -----------------------------
-// Parsing
-// -----------------------------
 
 async function parseCSVText(text, virtualPath){ return new Promise((resolve)=>{ Papa.parse(text,{ header:true, dynamicTyping:false, skipEmptyLines:true, worker:false, complete:(results)=>resolve({data:results.data, meta:results.meta, errors:results.errors, virtualPath}), }); }); }
 
@@ -115,7 +114,7 @@ async function loadFromZip(file){ setStatus('Reading ZIP...'); const zip=await J
 async function loadFromCSVFiles(files){ const csvs=Array.from(files).filter(f=>f.name.toLowerCase().endsWith('.csv')); const rows=[]; for(const f of csvs){ setStatus(`Parsing ${f.name}`); const text=await f.text(); const parsed=await parseCSVText(text, f.name); rows.push(...mapFileToRows(parsed, state.stationMeta)); } setStatus(`Loaded ${formatNumber(rows.length)} rows from ${csvs.length} CSV files.`); return rows; }
 async function loadStationMetadata(file){ const text=await file.text(); const parsed=await new Promise((resolve)=>{ Papa.parse(text,{ header:true, dynamicTyping:false, skipEmptyLines:true, complete:(res)=>resolve(res) }); }); const map=new Map(); for(const r of parsed.data||[]){ const sid=(r.station_id||'').toString().trim(); if(!sid) continue; map.set(sid,{ station_id:sid, display_name:(r.display_name||sid).toString().trim(), lat:r.lat!=null? Number(r.lat): null, lon:r.lon!=null? Number(r.lon): null, river:(r.river||'').toString(), notes:(r.notes||'').toString(), }); } return map; }
 
-async function loadFromInventoryCsv(url='reports/data_inventory.csv'){ try{ setStatus('Looking for reports/data_inventory.csv...'); const res=await fetch(url,{cache:'no-store'}); if(!res.ok) throw new Error('inventory not found'); const text=await res.text(); const parsed=await new Promise((resolve)=>{ Papa.parse(text,{ header:true, dynamicTyping:false, skipEmptyLines:true, complete:resolve }); }); const items=(parsed.data||[]).filter(r=>(r.RelativePath||'').toLowerCase().endsWith('.csv')); const rows=[]; let i=0; for(const it of items){ i++; const rel=String(it.RelativePath||'').replace(/\\/g,'/'); const path=rel.startsWith('/')? rel.slice(1): rel; if(!path.toLowerCase().startsWith('data/')) continue; setStatus(`Fetching ${i}/${items.length}: ${path}`); try{ const resp=await fetch(encodeURI(path),{cache:'no-store'}); if(!resp.ok) continue; const csvText=await resp.text(); const parsedFile=await parseCSVText(csvText, path); rows.push(...mapFileToRows(parsedFile, state.stationMeta)); }catch(e){ console.warn('Failed to fetch', path, e); }
+async function loadFromInventoryCsv(url=`${ROOT_PREFIX}reports/data_inventory.csv`){ try{ setStatus('Looking for reports/data_inventory.csv...'); const res=await fetch(url,{cache:'no-store'}); if(!res.ok) throw new Error('inventory not found'); const text=await res.text(); const parsed=await new Promise((resolve)=>{ Papa.parse(text,{ header:true, dynamicTyping:false, skipEmptyLines:true, complete:resolve }); }); const items=(parsed.data||[]).filter(r=>(r.RelativePath||'').toLowerCase().endsWith('.csv')); const rows=[]; let i=0; for(const it of items){ i++; const rel=String(it.RelativePath||'').replace(/\\/g,'/'); const path=rel.startsWith('/')? rel.slice(1): rel; if(!path.toLowerCase().startsWith('data/')) continue; setStatus(`Fetching ${i}/${items.length}: ${path}`); try{ const resp=await fetch(encodeURI(`${ROOT_PREFIX}${path}`),{cache:'no-store'}); if(!resp.ok) continue; const csvText=await resp.text(); const parsedFile=await parseCSVText(csvText, path); rows.push(...mapFileToRows(parsedFile, state.stationMeta)); }catch(e){ console.warn('Failed to fetch', path, e); }
     }
     setStatus(`Loaded ${formatNumber(rows.length)} rows from ${items.length} CSV files.`);
     return rows;
@@ -126,9 +125,6 @@ async function loadFromFolderPicker(){ if(!window.showDirectoryPicker) throw new
 
 async function attemptAutoLoad(){ const fromInv=await loadFromInventoryCsv(); if(fromInv && fromInv.length){ state.rows=fromInv; populateAfterLoad(); return true; } setStatus('Auto-load failed. Use Pick folder or Upload.'); return false; }
 
-// -----------------------------
-// UI population & filtering
-// -----------------------------
 
 function updateStationsUI(){ const stationsArr=Array.from(state.stations).sort((a,b)=>a.localeCompare(b)); const getDisplay=(sid)=> state.stationMeta.get(sid)?.display_name || sid; const searchA=(ui.stationSearchA.value||'').toLowerCase(); const searchB=(ui.stationSearchB.value||'').toLowerCase(); const prevA=ui.stationSelectA.value; const prevB=ui.stationSelectB.value;
   ui.stationSelectA.innerHTML='';
@@ -136,7 +132,6 @@ function updateStationsUI(){ const stationsArr=Array.from(state.stations).sort((
   for(const sid of stationsArr){ const label=getDisplay(sid); const lowerLabel=label.toLowerCase(); const lowerSid=sid.toLowerCase(); if(searchA && !lowerLabel.includes(searchA) && !lowerSid.includes(searchA)){} else { const optA=document.createElement('option'); optA.value=sid; optA.textContent=label; if(state.stationA===sid || (!state.stationA && prevA===sid)) optA.selected=true; ui.stationSelectA.appendChild(optA); }
     if(searchB && !lowerLabel.includes(searchB) && !lowerSid.includes(searchB)){} else { const optB=document.createElement('option'); optB.value=sid; optB.textContent=label; if(state.stationB===sid || (!state.stationB && prevB===sid)) optB.selected=true; ui.stationSelectB.appendChild(optB); }
   }
-  // If nothing selected yet, pick first two
   if(!state.stationA && ui.stationSelectA.options.length){ state.stationA = ui.stationSelectA.options[0].value; }
   if(!state.stationB && ui.stationSelectB.options.length){ state.stationB = ui.stationSelectB.options[Math.min(1, ui.stationSelectB.options.length-1)].value; }
   if(state.stationA) ui.stationSelectA.value = state.stationA;
@@ -174,29 +169,55 @@ function filterRowsTwo(){ const {kinds, stationA, stationB, start, end} = getAct
 
 const refreshAll = debounce(()=>{ const filtered = filterRowsTwo(); ui.exportBtn.disabled = filtered.length===0; renderCharts(filtered); setStatus(`${formatNumber(filtered.length)} rows filtered for two stations`); }, 200);
 
-// -----------------------------
-// Rendering
-// -----------------------------
 
-function layoutFor(kind){ const title = KIND_LABEL[kind] + ' — Station A vs B'; const shapes=[]; const annotations=[]; if(kind==='salinity' && state.markExceed){ for(const [c,label] of [[state.thr3,'≥3 g/L'], [state.thr4,'≥4 g/L']]){ shapes.push({type:'line', xref:'paper', x0:0, x1:1, y0:c, y1:c, line:{color:'#e11d48', width:1, dash:'dot'}}); annotations.push({xref:'paper', x:1.0, xanchor:'right', y:c, yanchor:'bottom', text:label, showarrow:false, font:{color:'#e11d48'}}); } }
-  return { title, margin:{l:50,r:20,t:30,b:35}, xaxis:{title:'Date'}, yaxis:{title:KIND_LABEL[kind]}, legend:{orientation:'h', y:-0.2}, uirevision:'keep', shapes, annotations };
+function layoutFor(kind, stationLabel) {
+  const base = KIND_LABEL[kind] || kind;
+  const title = stationLabel ? base + '  ' + stationLabel : base;
+  const shapes = [];
+  const annotations = [];
+  if (kind === 'salinity' && state.markExceed) {
+    for (const [c, label] of [[state.thr3, '>=3 g/L'], [state.thr4, '>=4 g/L']]) {
+      shapes.push({ type: 'line', xref: 'paper', x0: 0, x1: 1, y0: c, y1: c, line: { color: '#e11d48', width: 1, dash: 'dot' } });
+      annotations.push({ xref: 'paper', x: 1.0, xanchor: 'right', y: c, yanchor: 'bottom', text: label, showarrow: false, font: { color: '#e11d48' } });
+    }
+  }
+  return {
+    title,
+    margin: { l: 50, r: 20, t: 30, b: 35 },
+    xaxis: { title: 'Date' },
+    yaxis: { title: base },
+    showlegend: false,
+    autosize: true,
+    uirevision: 'keep',
+    shapes,
+    annotations,
+  };
 }
 
-function renderCharts(rows){ const selA=state.stationA, selB=state.stationB; const nameOf=(sid)=> state.stationMeta.get(sid)?.display_name || sid || '';
-  for(const k of ['salinity','water_level','discharge','rain']){
-    const el = ui.charts[k]; if(!el) continue; if(!state.selectedKinds.has(k)){ Plotly.react(el, [], layoutFor(k), {responsive:true, displaylogo:false}); continue; }
-    const a = rows.filter(r=>r.kind===k && r.station_id===selA).sort((x,y)=>x.datetimeDate-y.datetimeDate);
-    const b = rows.filter(r=>r.kind===k && r.station_id===selB).sort((x,y)=>x.datetimeDate-y.datetimeDate);
-    const traces = [];
-    if(a.length){ traces.push({ type:'scatter', mode:'lines', x:a.map(r=>r.datetimeDate), y:a.map(r=>r.value), name:`A: ${nameOf(selA)}`, hovertemplate:'%{fullData.name}<br>%{x|%Y-%m-%d %H:%M}<br>'+KIND_LABEL[k]+': %{y}<extra></extra>' }); }
-    if(b.length){ traces.push({ type:'scatter', mode:'lines', x:b.map(r=>r.datetimeDate), y:b.map(r=>r.value), name:`B: ${nameOf(selB)}`, hovertemplate:'%{fullData.name}<br>%{x|%Y-%m-%d %H:%M}<br>'+KIND_LABEL[k]+': %{y}<extra></extra>' }); }
-    Plotly.react(el, traces, layoutFor(k), { responsive:true, displaylogo:false, modeBarButtonsToRemove:['toImage'] });
+function renderCharts(rows) {
+  const selA = state.stationA;
+  const selB = state.stationB;
+  const nameOf = (sid) => state.stationMeta.get(sid)?.display_name || sid || '';
+  for (const k of ['salinity', 'water_level', 'discharge', 'rain']) {
+    const group = ui.charts[k];
+    if (!group) continue;
+    const labelA = nameOf(selA);
+    const labelB = nameOf(selB);
+    if (!state.selectedKinds.has(k)) {
+      if (group.a) Plotly.react(group.a, [], layoutFor(k, labelA), { responsive: true, displaylogo: false });
+      if (group.b) Plotly.react(group.b, [], layoutFor(k, labelB), { responsive: true, displaylogo: false });
+      continue;
+    }
+    const a = rows.filter(r => r.kind === k && r.station_id === selA).sort((x, y) => x.datetimeDate - y.datetimeDate);
+    const b = rows.filter(r => r.kind === k && r.station_id === selB).sort((x, y) => x.datetimeDate - y.datetimeDate);
+    const tracesA = a.length ? [{ type: 'scatter', mode: 'lines', x: a.map(r => r.datetimeDate), y: a.map(r => r.value), name: labelA, hovertemplate: '%{fullData.name}<br>%{x|%Y-%m-%d %H:%M}<br>' + KIND_LABEL[k] + ': %{y}<extra></extra>' }] : [];
+    const tracesB = b.length ? [{ type: 'scatter', mode: 'lines', x: b.map(r => r.datetimeDate), y: b.map(r => r.value), name: labelB, hovertemplate: '%{fullData.name}<br>%{x|%Y-%m-%d %H:%M}<br>' + KIND_LABEL[k] + ': %{y}<extra></extra>' }] : [];
+    if (group.a) Plotly.react(group.a, tracesA, layoutFor(k, labelA), { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['toImage'] });
+    if (group.b) Plotly.react(group.b, tracesB, layoutFor(k, labelB), { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['toImage'] });
+    if (group.a && group.a._fullLayout) Plotly.Plots.resize(group.a);
+    if (group.b && group.b._fullLayout) Plotly.Plots.resize(group.b);
   }
 }
-
-// -----------------------------
-// Events
-// -----------------------------
 
 async function onZipSelected(e){ const file=e.target.files?.[0]; if(!file) return; try{ const rows=await loadFromZip(file); state.rows=rows; populateAfterLoad(); }catch(err){ console.error(err); setStatus('Failed to read ZIP.'); } }
 async function onCSVsSelected(e){ const files=e.target.files; if(!files||!files.length) return; try{ const rows=await loadFromCSVFiles(files); state.rows=rows; populateAfterLoad(); }catch(err){ console.error(err); setStatus('Failed to read CSV files.'); } }
@@ -210,9 +231,6 @@ function onReset(){ ui.kind.salinity.checked=true; ui.kind.water_level.checked=t
 
 function onExport(){ const {kinds, stationA, stationB, start, end} = getActiveFilters(); const sTime=start? start.getTime(): -Infinity; const eTime=end? end.getTime(): Infinity; const rows = state.rows.filter(r=> kinds.has(r.kind) && (r.station_id===stationA || r.station_id===stationB) && r.datetimeDate.getTime()>=sTime && r.datetimeDate.getTime()<=eTime ).map(r=>({ datetimeISO:r.datetimeISO, station_id:r.station_id, display_name:r.display_name, kind:r.kind, value:r.value })); const filename=`mekong_compare_${Date.now()}.csv`; downloadCSV(filename, rows); }
 
-// -----------------------------
-// Init
-// -----------------------------
 
 function init(){ loadState();
   if(ui.autoReloadBtn) ui.autoReloadBtn.addEventListener('click', attemptAutoLoad);
@@ -237,11 +255,12 @@ function init(){ loadState();
   ui.resetBtn.addEventListener('click', onReset);
   ui.exportBtn.addEventListener('click', onExport);
 
-  // Seed empty plots
-  ['salinity','water_level','discharge','rain'].forEach(k=> Plotly.newPlot(ui.charts[k], [], layoutFor(k), {responsive:true, displaylogo:false}));
+  ['salinity','water_level','discharge','rain'].forEach(k=> { const group = ui.charts[k]; if(group && group.a) Plotly.newPlot(group.a, [], layoutFor(k), {responsive:true, displaylogo:false}); if(group && group.b) Plotly.newPlot(group.b, [], layoutFor(k), {responsive:true, displaylogo:false}); });
 
   attemptAutoLoad();
 }
 
 init();
+
+
 

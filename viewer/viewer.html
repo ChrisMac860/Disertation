@@ -4,16 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Mekong Station Visualiser</title>
-    <!-- Inline favicon to avoid 404s -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' ry='12' fill='%230a84ff'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-family='Segoe UI,Arial' font-size='34' fill='white'%3EMS%3C/text%3E%3C/svg%3E" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="card-nav.css" />
     <script defer src="card-nav.js"></script>
-    <!-- Plotly for charts -->
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    <!-- PapaParse for CSV parsing -->
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-    <!-- JSZip to read ZIPs in browser -->
     <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
     <script defer src="app.js"></script>
   </head>
@@ -24,26 +20,27 @@
           <h1>Mekong Station Visualiser</h1>
           <p class="subtitle">Main viewer | Local, offline</p>
         </div>
-        <div class="privacy-note" title="Runs entirely in your browser.">Local only. No uploads.</div>
+        
+      </div>
+    </header>
+
+    <header class="rb-cardnav" data-rb-cardnav>
+      <div class="rb-cardnav__bar">
+        <button class="rb-cardnav__toggle" type="button" aria-label="Open menu" aria-expanded="false">
+          <span class="rb-burger" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </span>
+        </button>
+      </div>
+
+      <div class="rb-cardnav__panel" data-rb-panel>
+        <div class="rb-cardnav__inner" data-rb-inner>
+          <div class="rb-cardnav__grid" data-rb-grid></div>
+        </div>
       </div>
     </header>
 
     <main class="layout">
-      <header class="rb-cardnav" data-rb-cardnav>
-        <div class="rb-cardnav__bar">
-          <button class="rb-cardnav__toggle" type="button" aria-label="Open menu" aria-expanded="false">
-            <span class="rb-burger" aria-hidden="true">
-              <span></span><span></span><span></span>
-            </span>
-          </button>
-        </div>
-
-        <div class="rb-cardnav__panel" data-rb-panel>
-          <div class="rb-cardnav__inner" data-rb-inner>
-            <div class="rb-cardnav__grid" data-rb-grid></div>
-          </div>
-        </div>
-      </header>
 
       <aside class="controls card" aria-label="Controls panel">
         <section>
@@ -59,7 +56,7 @@
           <div class="field">
             <label for="metaInput">Optional station metadata CSV</label>
             <input id="metaInput" type="file" accept=".csv" />
-            <small class="muted">Columns: station_id, display_name, lat, lon, river, notes</small>
+            <small class="muted">Columns: station_id, display_name</small>
           </div>
           <details>
             <summary class="muted">Advanced: Upload ZIP or CSV files</summary>
@@ -140,25 +137,24 @@
             <div class="chart" id="chart-rain" aria-label="Rain chart"></div>
           </div>
         </div>
-
+<!-- --- IGNORE --- --
         <div class="card">
           <h2>Diagnostics</h2>
           <div class="chart" id="chart-missingness" aria-label="Missingness chart"></div>
           <h3>Salinity exceedances</h3>
           <div id="exceedTableWrap" class="table-wrap"></div>
 
-          <!-- Tiny test harness (toggle to inject mock data) -->
           <details class="mock">
             <summary>Load tiny mock dataset (for testing)</summary>
             <button id="mockBtn" type="button">Generate mock data</button>
             <small class="muted">Creates 3 fake stations × 2 kinds × 7 days.</small>
           </details>
-        </div>
+        </div> -->
       </section>
     </main>
 
     <footer class="site-footer">
-      <small class="muted">Built for local use. Libraries loaded via CDN only.</small>
+      <small class="muted">Built for local use.</small>
     </footer>
   </body>
   </html>

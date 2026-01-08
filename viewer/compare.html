@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Mekong Station Visualiser — Compare</title>
+    <title>Mekong Station Visualiser  Compare</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' ry='12' fill='%230a84ff'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-family='Segoe UI,Arial' font-size='34' fill='white'%3E2x%3C/text%3E%3C/svg%3E" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="card-nav.css" />
@@ -18,35 +18,46 @@
       <div class="header-top">
         <div class="title">
           <h1>Compare Two Stations</h1>
-          <p class="subtitle">Overlay time series by variable</p>
+          <p class="subtitle">Side-by-side time series by variable</p>
         </div>
-        <div class="privacy-note" title="Runs entirely in your browser.">Local only. No uploads.</div>
+        
+      </div>
+    </header>
+    <header class="rb-cardnav is-open" data-rb-cardnav="">
+      <div class="rb-cardnav__bar">
+        <button class="rb-cardnav__toggle" type="button" aria-label="Open menu" aria-expanded="false">
+          <span class="rb-burger" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </span>
+        </button>
+      </div>
+
+      <div class="rb-cardnav__panel" data-rb-panel="" aria-hidden="false" style="height: auto;">
+        <div class="rb-cardnav__inner" data-rb-inner="">
+          <div class="rb-cardnav__grid" data-rb-grid=""><a class="rb-cardnav__card is-active" href="index.html" aria-current="page" style="--rb-card-accent: #e23d2d; transition-delay: 0ms;">
+        <div class="rb-cardnav__title">Home</div>
+        <div class="rb-cardnav__desc">Landing hub and intro.</div>
+      </a><a class="rb-cardnav__card" href="viewer.html" style="--rb-card-accent: #0f8c86; transition-delay: 60ms;">
+        <div class="rb-cardnav__title">Main viewer</div>
+        <div class="rb-cardnav__desc">Explore station data and charts.</div>
+      </a><a class="rb-cardnav__card" href="compare.html" style="--rb-card-accent: #0f1818; transition-delay: 120ms;">
+        <div class="rb-cardnav__title">Compare</div>
+        <div class="rb-cardnav__desc">Side-by-side station plots.</div>
+      </a></div>
+        </div>
       </div>
     </header>
 
+    
+
     <main class="layout">
-      <header class="rb-cardnav" data-rb-cardnav>
-        <div class="rb-cardnav__bar">
-          <button class="rb-cardnav__toggle" type="button" aria-label="Open menu" aria-expanded="false">
-            <span class="rb-burger" aria-hidden="true">
-              <span></span><span></span><span></span>
-            </span>
-          </button>
-        </div>
-
-        <div class="rb-cardnav__panel" data-rb-panel>
-          <div class="rb-cardnav__inner" data-rb-inner>
-            <div class="rb-cardnav__grid" data-rb-grid></div>
-          </div>
-        </div>
-      </header>
-
+ 
       <aside class="controls card" aria-label="Controls panel">
         <section>
           <h2 class="section-title">Data source</h2>
           <div class="field">
             <button id="autoReloadBtn" type="button">Auto-load from data/</button>
-            <small class="muted">Reads CSVs under <code>data/</code> via <code>reports/data_inventory.csv</code>.</small>
+            <small class="muted">Reads CSVs under <code>data/</code> via </small>
           </div>
           <div class="field">
             <button id="folderBtn" type="button">Pick data folder (no upload)</button>
@@ -55,7 +66,7 @@
           <div class="field">
             <label for="metaInput">Optional station metadata CSV</label>
             <input id="metaInput" type="file" accept=".csv" />
-            <small class="muted">Columns: station_id, display_name, lat, lon, river, notes</small>
+            <small class="muted">Columns: station_id, display_name</small>
           </div>
           <details>
             <summary class="muted">Advanced: Upload ZIP or CSV files</summary>
@@ -137,11 +148,35 @@
       <section class="main">
         <div class="card">
           <h2>Comparison charts</h2>
-          <div class="charts-grid">
-            <div class="chart" id="chartC-salinity" aria-label="Salinity chart"></div>
-            <div class="chart" id="chartC-water_level" aria-label="Water level chart"></div>
-            <div class="chart" id="chartC-discharge" aria-label="Discharge chart"></div>
-            <div class="chart" id="chartC-rain" aria-label="Rain chart"></div>
+          <div class="compare-grid">
+            <div class="compare-group">
+              <h3>Salinity</h3>
+              <div class="compare-row">
+                <div class="chart" id="chartC-salinity-a" aria-label="Salinity chart station A"></div>
+                <div class="chart" id="chartC-salinity-b" aria-label="Salinity chart station B"></div>
+              </div>
+            </div>
+            <div class="compare-group">
+              <h3>Water level</h3>
+              <div class="compare-row">
+                <div class="chart" id="chartC-water_level-a" aria-label="Water level chart station A"></div>
+                <div class="chart" id="chartC-water_level-b" aria-label="Water level chart station B"></div>
+              </div>
+            </div>
+            <div class="compare-group">
+              <h3>Discharge</h3>
+              <div class="compare-row">
+                <div class="chart" id="chartC-discharge-a" aria-label="Discharge chart station A"></div>
+                <div class="chart" id="chartC-discharge-b" aria-label="Discharge chart station B"></div>
+              </div>
+            </div>
+            <div class="compare-group">
+              <h3>Rain</h3>
+              <div class="compare-row">
+                <div class="chart" id="chartC-rain-a" aria-label="Rain chart station A"></div>
+                <div class="chart" id="chartC-rain-b" aria-label="Rain chart station B"></div>
+              </div>
+            </div>
           </div>
         </div>
       </section>

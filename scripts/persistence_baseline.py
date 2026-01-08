@@ -1,4 +1,6 @@
-﻿import argparse
+"""Compute persistence baseline metrics."""
+
+import argparse
 from pathlib import Path
 import pandas as pd
 import numpy as np

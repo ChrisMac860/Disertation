@@ -1,4 +1,6 @@
-﻿import argparse
+"""Count threshold exceedance events."""
+
+import argparse
 from pathlib import Path
 import pandas as pd
 

@@ -1,0 +1,21 @@
+# Node / JS dependencies
+node_modules/
+
+# Python artifacts
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+.venv/
+.env/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Data and reports (keep placeholder .gitkeep if present)
+data/
+!data/.gitkeep
+reports/
+!reports/.gitkeep

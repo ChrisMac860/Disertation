@@ -16,33 +16,32 @@
           <h1>Welcome to the Mekong Station Visualiser</h1>
           <p class="subtitle">Landing hub for the viewer tools</p>
         </div>
-        <div class="privacy-note" title="Runs entirely in your browser.">Local only. No uploads.</div>
+      </div>
+    </header>
+
+    <header class="rb-cardnav" data-rb-cardnav>
+      <div class="rb-cardnav__bar">
+        <button class="rb-cardnav__toggle" type="button" aria-label="Open menu" aria-expanded="false">
+          <span class="rb-burger" aria-hidden="true">
+            <span></span><span></span><span></span>
+          </span>
+        </button>
+      </div>
+
+      <div class="rb-cardnav__panel" data-rb-panel>
+        <div class="rb-cardnav__inner" data-rb-inner>
+          <div class="rb-cardnav__grid" data-rb-grid></div>
+        </div>
       </div>
     </header>
 
     <main class="layout layout--home">
-      <header class="rb-cardnav" data-rb-cardnav>
-        <div class="rb-cardnav__bar">
-          <button class="rb-cardnav__toggle" type="button" aria-label="Open menu" aria-expanded="false">
-            <span class="rb-burger" aria-hidden="true">
-              <span></span><span></span><span></span>
-            </span>
-          </button>
-        </div>
-
-        <div class="rb-cardnav__panel" data-rb-panel>
-          <div class="rb-cardnav__inner" data-rb-inner>
-            <div class="rb-cardnav__grid" data-rb-grid></div>
-          </div>
-        </div>
-      </header>
-
       <section class="home">
         <div class="card hero-card">
           <div class="hero-copy">
             <p class="eyebrow">Start here</p>
-            <h2>Your offline base for river station insights</h2>
-            <p class="muted">Pick a tool to explore datasets or compare two stations side by side. You can add more copy and visuals here later.</p>
+            <h2>Two tools for Mekong station data</h2>
+            <p class="muted">Use the main viewer to inspect one dataset, or hop to comparison to see two stations on the same chart. Everything stays on your machine.</p>
           </div>
           <div class="home-actions">
             <a class="button primary" href="viewer.html">Open main viewer</a>
@@ -53,18 +52,15 @@
         <div class="home-grid">
           <article class="card home-card">
             <p class="eyebrow">Main viewer</p>
-            <h3>Explore and filter</h3>
-            <p class="muted">Load CSVs or ZIPs locally, filter by station and kind, and export cleaned subsets when you are ready.</p>
+            <h3>Inspect a single dataset</h3>
+            <p class="muted">Open CSV or ZIP files, pick a station and variables, and filter or export the view you need.</p>
+            <p class="muted"><strong>How to use:</strong> Open the main viewer, load your file, select station + variable, then chart or download.</p>
           </article>
           <article class="card home-card">
             <p class="eyebrow">Comparison</p>
-            <h3>Overlay two stations</h3>
-            <p class="muted">Graph variables from two locations on the same axes to quickly spot divergence and exceedances.</p>
-          </article>
-          <article class="card home-card">
-            <p class="eyebrow">Bring your content</p>
-            <h3>Fill me in later</h3>
-            <p class="muted">Add project notes, imagery, or quick-start steps here when you are ready to round out the landing page.</p>
+            <h3>Compare two stations</h3>
+            <p class="muted">Overlay two locations on one chart to spot differences and exceedances quickly.</p>
+            <p class="muted"><strong>How to use:</strong> Add dataset A and B, choose a station + variable for each, then review the combined chart and stats.</p>
           </article>
         </div>
       </section>

@@ -1,20 +1,4 @@
-/*
-  Mekong Station Visualiser — pure client-side app
-  - Accept a ZIP of DATA/ or multiple CSV files
-  - Auto-detect variable kinds, datetime/value columns, station_id
-  - Build an in-memory long table: { datetimeISO, datetimeDate, station_id, kind, value }
-  - Optional station metadata join (station_id, display_name, lat, lon, river, notes)
-  - Filters + plots with Plotly, parsing with Papa, ZIP with JSZip
-  - Local only. No uploads.
-
-  Note: For date handling we parse using new Date(value). We store:
-    - datetimeDate: Date object (local timezone)
-    - datetimeISO: local ISO string (YYYY-MM-DDTHH:mm:ss)
-*/
-
-// -----------------------------
-// Utilities
-// -----------------------------
+/* Main viewer script; client-side only. */
 
 const ui = {
   zipInput: document.getElementById('zipInput'),
@@ -40,6 +24,7 @@ const ui = {
   markExceed: document.getElementById('markExceed'),
   resetBtn: document.getElementById('resetBtn'),
   exportBtn: document.getElementById('exportBtn'),
+  exportMlBtn: document.getElementById('exportMlBtn'),
 
   overviewTableWrap: document.getElementById('overviewTableWrap'),
   charts: {
@@ -69,6 +54,9 @@ const KIND_LABEL = {
   rain: 'Rain',
 };
 
+const HOUR_MS = 60 * 60 * 1000;
+const ROOT_PREFIX = window.location.pathname.includes('/viewer/') ? '../' : '';
+
 function debounce(fn, ms) {
   let t;
   return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
@@ -91,7 +79,7 @@ function toLocalISO(date) {
   const hh = pad(date.getHours());
   const mm = pad(date.getMinutes());
   const ss = pad(date.getSeconds());
-  return `${y}-${m}-${d}T${hh}:${mm}:${ss}`; // local time, no Z
+  return `${y}-${m}-${d}T${hh}:${mm}:${ss}`;
 }
 
 function ymd(date) {
@@ -101,6 +89,12 @@ function ymd(date) {
   return `${y}-${m}-${d}`;
 }
 
+function floorToHour(date) {
+  const d = new Date(date.getTime());
+  d.setMinutes(0, 0, 0);
+  return d;
+}
+
 function parseDateFlexible(v) {
   if (v == null) return null;
   if (v instanceof Date && !isNaN(v)) return v;
@@ -108,12 +102,10 @@ function parseDateFlexible(v) {
   if (!s) return null;
   const d = new Date(s);
   if (!isNaN(d)) return d;
-  // Try replacing space with T
   if (s.includes(' ')) {
     const d2 = new Date(s.replace(' ', 'T'));
     if (!isNaN(d2)) return d2;
   }
-  // Try DD/MM/YYYY or similar? Keep minimal: if it looks like YYYY-MM-DD
   const m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
   if (m) {
     const d3 = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
@@ -124,14 +116,12 @@ function parseDateFlexible(v) {
 
 function detectDatetimeCol(columns, sampleRows) {
   const colsLower = columns.map(c => (c || '').toString().toLowerCase());
-  // 1) name-based
   for (let i = 0; i < colsLower.length; i++) {
     if (DATETIME_COLUMN_HINTS.some(k => colsLower[i].includes(k))) {
       const ok = sampleRows.filter(r => parseDateFlexible(r[columns[i]])).length;
       if (ok >= Math.min(50, Math.ceil(sampleRows.length * 0.6))) return columns[i];
     }
   }
-  // 2) fallback: first column that parses to dates at least 50 rows or 60%
   for (let i = 0; i < columns.length; i++) {
     const ok = sampleRows.filter(r => parseDateFlexible(r[columns[i]])).length;
     if (ok >= Math.min(50, Math.ceil(sampleRows.length * 0.6))) return columns[i];
@@ -148,17 +138,14 @@ function isNumeric(v) {
 function detectValueCol(columns, sampleRows, kind, dateCol) {
   const lowerCols = columns.map(c => (c || '').toString().toLowerCase());
   const prefer = VALUE_COLUMN_HINTS[kind] || [];
-  // 1) name preference
   for (let i = 0; i < columns.length; i++) {
     if (columns[i] === dateCol) continue;
     const c = lowerCols[i];
     if (prefer.some(k => c.includes(k))) {
-      // ensure at least some numerics in sample
       const num = sampleRows.filter(r => isNumeric(r[columns[i]])).length;
       if (num >= Math.min(10, Math.ceil(sampleRows.length * 0.2))) return columns[i];
     }
   }
-  // 2) fallback: first numeric-ish column not dateCol
   for (let i = 0; i < columns.length; i++) {
     const col = columns[i];
     if (col === dateCol) continue;
@@ -183,7 +170,6 @@ function extractStationId(filename) {
   if (bracket && bracket[1]) {
     return bracket[1].replace(/\s+/g, '');
   }
-  // remove trailing _YYYY_YYYY
   const m = name.match(/^(.*)_\d{4}_\d{4}$/);
   if (m) return m[1];
   return name;
@@ -207,18 +193,14 @@ function downloadCSV(filename, rows) {
   URL.revokeObjectURL(url);
 }
 
-// -----------------------------
-// Global state
-// -----------------------------
 
 const state = {
-  rows: [], // { datetimeDate, datetimeISO, station_id, kind, value, display_name? }
+  rows: [],
   stations: new Set(),
-  stationMeta: new Map(), // station_id -> { display_name, lat, lon, river, notes }
+  stationMeta: new Map(),
   kindsAvailable: new Set(),
   minDate: null,
   maxDate: null,
-  // UI selections
   selectedKinds: new Set(['salinity', 'water_level', 'discharge', 'rain']),
   selectedStations: new Set(),
   filterStart: null,
@@ -228,7 +210,6 @@ const state = {
   markExceed: false,
 };
 
-// Persist selections
 const STORAGE_KEY = 'msv_state_v1';
 function saveState() {
   try {
@@ -256,9 +237,6 @@ function loadState() {
   } catch {}
 }
 
-// -----------------------------
-// Parsing
-// -----------------------------
 
 async function parseCSVText(text, virtualPath) {
   return new Promise((resolve) => {
@@ -365,8 +343,7 @@ async function loadStationMetadata(file) {
   return map;
 }
 
-// Auto-load using reports/data_inventory.csv to enumerate paths
-async function loadFromInventoryCsv(url = 'reports/data_inventory.csv') {
+async function loadFromInventoryCsv(url = `${ROOT_PREFIX}reports/data_inventory.csv`) {
   try {
     setStatus('Looking for reports/data_inventory.csv...');
     const res = await fetch(url, { cache: 'no-store' });
@@ -385,7 +362,7 @@ async function loadFromInventoryCsv(url = 'reports/data_inventory.csv') {
       if (!path.toLowerCase().startsWith('data/')) { continue; }
       setStatus(`Fetching ${i}/${items.length}: ${path}`);
       try {
-        const resp = await fetch(encodeURI(path), { cache: 'no-store' });
+        const resp = await fetch(encodeURI(`${ROOT_PREFIX}${path}`), { cache: 'no-store' });
         if (!resp.ok) continue;
         const csvText = await resp.text();
         const parsedFile = await parseCSVText(csvText, path);
@@ -402,7 +379,6 @@ async function loadFromInventoryCsv(url = 'reports/data_inventory.csv') {
   }
 }
 
-// Folder picker using File System Access API (Chromium-based browsers)
 async function loadFromFolderPicker() {
   if (!window.showDirectoryPicker) throw new Error('Folder access API not supported in this browser.');
   setStatus('Pick the data/ folder...');
@@ -428,7 +404,6 @@ async function loadFromFolderPicker() {
 }
 
 async function attemptAutoLoad() {
-  // Try inventory-based fetch from reports/data_inventory.csv
   const fromInv = await loadFromInventoryCsv();
   if (fromInv && fromInv.length) {
     state.rows = fromInv;
@@ -439,16 +414,12 @@ async function attemptAutoLoad() {
   return false;
 }
 
-// -----------------------------
-// UI population & filtering
-// -----------------------------
 
 function updateStationsUI() {
   const stationsArr = Array.from(state.stations).sort((a, b) => a.localeCompare(b));
   const getDisplay = (sid) => state.stationMeta.get(sid)?.display_name || sid;
   const search = (ui.stationSearch.value || '').toLowerCase();
 
-  // preserve selection where possible
   const prevSel = new Set(Array.from(ui.stationSelect.selectedOptions).map(o => o.value));
 
   ui.stationSelect.innerHTML = '';
@@ -466,7 +437,6 @@ function populateAfterLoad() {
   state.stations = new Set(state.rows.map(r => r.station_id));
   state.kindsAvailable = new Set(state.rows.map(r => r.kind));
   if (state.rows.length) {
-    // Compute date range safely (avoid spreading huge arrays)
     let minT = Infinity, maxT = -Infinity;
     for (const r of state.rows) {
       const t = r.datetimeDate.getTime();
@@ -480,19 +450,16 @@ function populateAfterLoad() {
     ui.dateStart.min = ymd(min); ui.dateStart.max = ymd(max);
     ui.dateEnd.min = ymd(min); ui.dateEnd.max = ymd(max);
 
-    // Restore from storage if present, else defaults
     if (!state.filterStart) state.filterStart = min;
     if (!state.filterEnd) state.filterEnd = max;
     ui.dateStart.value = ymd(state.filterStart);
     ui.dateEnd.value = ymd(state.filterEnd);
 
-    // Default select: first 20 stations if none persisted
     if (!state.selectedStations.size) {
       const first20 = Array.from(state.stations).sort().slice(0, 20);
       state.selectedStations = new Set(first20);
     }
   }
-  // Set checkbox states
   ui.kind.salinity.checked = state.selectedKinds.has('salinity');
   ui.kind.water_level.checked = state.selectedKinds.has('water_level');
   ui.kind.discharge.checked = state.selectedKinds.has('discharge');
@@ -543,18 +510,15 @@ function filterRows() {
 const refreshAll = debounce(() => {
   const filtered = filterRows();
   ui.exportBtn.disabled = filtered.length === 0;
+  if (ui.exportMlBtn) ui.exportMlBtn.disabled = filtered.length === 0;
   renderOverview(filtered);
   renderCharts(filtered);
   renderDiagnostics(filtered);
   setStatus(`${formatNumber(filtered.length)} rows filtered · ${state.selectedStations.size} stations`);
 }, 200);
 
-// -----------------------------
-// Rendering
-// -----------------------------
 
 function renderOverview(rows) {
-  // counts by kind, min/max per kind, plus stations selected
   const kinds = ['salinity', 'water_level', 'discharge', 'rain'];
   const data = kinds.map(k => {
     const rr = rows.filter(r => r.kind === k);
@@ -634,9 +598,8 @@ function renderCharts(rows) {
 }
 
 function renderDiagnostics(rows) {
-  // Missingness: daily counts per station-kind
-  const dailyMap = new Map(); // key `${sid}|${kind}|${ymd}` -> count
-  const byKey = new Map(); // series key `${sid}|${kind}` -> Map(date->count)
+  const dailyMap = new Map();
+  const byKey = new Map();
   for (const r of rows) {
     const d = ymd(r.datetimeDate);
     const k = `${r.station_id}|${r.kind}|${d}`;
@@ -665,9 +628,8 @@ function renderDiagnostics(rows) {
     uirevision: 'keep',
   }, { responsive: true, displaylogo: false, modeBarButtonsToRemove: ['toImage'] });
 
-  // Exceedance table (salinity)
   const srows = rows.filter(r => r.kind === 'salinity');
-  const byStation = new Map(); // sid -> { n_obs, ge3, ge4 }
+  const byStation = new Map();
   for (const r of srows) {
     const t = byStation.get(r.station_id) || { n_obs: 0, ge3: 0, ge4: 0 };
     t.n_obs++;
@@ -704,9 +666,6 @@ function renderDiagnostics(rows) {
   ui.exceedTableWrap.innerHTML = tableHtml;
 }
 
-// -----------------------------
-// Event wiring
-// -----------------------------
 
 function onInputModeChanged() {
   const mode = ui.inputModeRadios.find(r => r.checked)?.value || 'zip';
@@ -745,7 +704,6 @@ async function onMetaSelected(e) {
   if (!file) return;
   try {
     state.stationMeta = await loadStationMetadata(file);
-    // update display_name on existing rows
     for (const r of state.rows) {
       r.display_name = state.stationMeta.get(r.station_id)?.display_name || r.station_id;
     }
@@ -762,13 +720,11 @@ function onFiltersChanged() { refreshAll(); }
 function onStationSearch() { updateStationsUI(); }
 
 function onReset() {
-  // Reset to defaults
   ui.kind.salinity.checked = true;
   ui.kind.water_level.checked = true;
   ui.kind.discharge.checked = true;
   ui.kind.rain.checked = true;
   ui.stationSearch.value = '';
-  // Preselect first 20
   const stationsArr = Array.from(state.stations).sort();
   ui.stationSelect.innerHTML = '';
   stationsArr.forEach((sid, i) => {
@@ -799,7 +755,89 @@ function onExport() {
   downloadCSV(filename, rows);
 }
 
-// Mock generator for quick testing
+async function exportForML() {
+  try {
+    const active = getActiveFilters();
+    const stationIds = Array.from(active.selectedStations);
+    if (!stationIds.length) {
+      setStatus('Select at least one station before exporting for ML.');
+      return;
+    }
+    if (typeof JSZip === 'undefined') {
+      setStatus('JSZip not available for ML export.');
+      return;
+    }
+    const stationSet = new Set(stationIds);
+    const startBound = active.start ? floorToHour(active.start).getTime() : null;
+    const endBound = active.end ? floorToHour(active.end).getTime() : null;
+
+    const salRows = state.rows.filter((r) => {
+      if (r.kind !== 'salinity') return false;
+      if (!stationSet.has(r.station_id)) return false;
+      const t = floorToHour(r.datetimeDate).getTime();
+      if (startBound !== null && t < startBound) return false;
+      if (endBound !== null && t > endBound) return false;
+      return true;
+    });
+
+    if (!salRows.length) {
+      setStatus('No salinity data available for the current filters.');
+      return;
+    }
+
+    const valueByTime = new Map();
+    let minTime = Infinity;
+    let maxTime = -Infinity;
+    for (const row of salRows) {
+      const ts = floorToHour(row.datetimeDate).getTime();
+      if (!valueByTime.has(ts)) valueByTime.set(ts, new Map());
+      valueByTime.get(ts).set(row.station_id, row.value);
+      if (ts < minTime) minTime = ts;
+      if (ts > maxTime) maxTime = ts;
+    }
+
+    if (!Number.isFinite(minTime) || !Number.isFinite(maxTime) || minTime > maxTime) {
+      setStatus('Unable to determine time range for ML export.');
+      return;
+    }
+
+    const header = ['datetimeISO', ...stationIds];
+    const valueLines = [header.join(',')];
+    const maskLines = [header.join(',')];
+
+    for (let ts = minTime; ts <= maxTime; ts += HOUR_MS) {
+      const iso = toLocalISO(new Date(ts));
+      const stationValues = valueByTime.get(ts);
+      const valueRow = [iso];
+      const maskRow = [iso];
+      for (const sid of stationIds) {
+        const val = stationValues ? stationValues.get(sid) : undefined;
+        const isPresent = Number.isFinite(val);
+        valueRow.push(isPresent ? val : 'NaN');
+        maskRow.push(isPresent ? '1' : '0');
+      }
+      valueLines.push(valueRow.join(','));
+      maskLines.push(maskRow.join(','));
+    }
+
+    setStatus('Building training_data.zip ...');
+    const zip = new JSZip();
+    zip.file('tensor_values.csv', valueLines.join('\n'));
+    zip.file('tensor_mask.csv', maskLines.join('\n'));
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'training_data.zip';
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatus('training_data.zip downloaded.');
+  } catch (err) {
+    console.error('exportForML failed', err);
+    setStatus('Failed to export ML tensors.');
+  }
+}
+
 function generateMockData() {
   const stations = ['Alpha', 'Bravo', 'Charlie'];
   const kinds = ['salinity', 'water_level'];
@@ -833,9 +871,6 @@ function onMock() {
   setStatus('Mock data loaded.');
 }
 
-// -----------------------------
-// Init
-// -----------------------------
 
 function init() {
   loadState();
@@ -869,14 +904,15 @@ function init() {
   ui.markExceed.addEventListener('change', onFiltersChanged);
   ui.resetBtn.addEventListener('click', onReset);
   ui.exportBtn.addEventListener('click', onExport);
+  if (ui.exportMlBtn) ui.exportMlBtn.addEventListener('click', exportForML);
   if (ui.mockBtn) ui.mockBtn.addEventListener('click', onMock);
 
-  // Initial empty plots to avoid layout shift
   ['salinity','water_level','discharge','rain'].forEach(k => Plotly.newPlot(ui.charts[k], [], layoutFor(k), {responsive:true, displaylogo:false}));
   Plotly.newPlot(ui.charts.missing, [], {title:'Daily row counts (missingness)'}, {responsive:true, displaylogo:false});
 
-  // Attempt auto-load immediately
   attemptAutoLoad();
 }
 
 init();
+
+

@@ -50,9 +50,10 @@ a { color: var(--accent); }
   width: 320px;
   height: 220px;
   background: url('images/bannerImage.png') center / cover no-repeat;
-  border: 1px solid var(--border);
   box-shadow: none;
   z-index: 0;
+  border-radius: 2.5%;
+  border: 1px solid var(--border);
 }
 .site-header > * { position: relative; z-index: 1; }
 .header-top {
@@ -214,7 +215,7 @@ button[disabled], .button[disabled] {
 }
 .button.primary:hover { box-shadow: none; }
 .button.ghost {
-  background: transparent;
+  background:whitesmoke ;
   color: #0f1818;
   border: 1px solid var(--border);
   box-shadow: none;
@@ -294,7 +295,7 @@ tbody tr:hover { background: transparent; }
   inset: 0 0 0 auto;
   width: 240px;
   height: 100%;
-  background: url('images/bannerImage.png') center / cover no-repeat;
+  background: url('images/Home_PAGE_IMAGE.png') center / cover no-repeat;
   border-left: 1px solid var(--border);
   opacity: 1;
   pointer-events: none;

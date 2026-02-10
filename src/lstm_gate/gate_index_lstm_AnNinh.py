@@ -15,11 +15,11 @@ from tensorflow.keras import models, layers, callbacks
 ROOT = Path(__file__).resolve().parents[2]
 CLEAN_DIR = ROOT / "data" / "clean"
 
-STATION_NAME = "AnDinh"
+STATION_NAME = "AnNinh"
 STATION_FILE = CLEAN_DIR / f"station_{STATION_NAME}.csv"
 
 STATION_GATE_CONFIG = {
-    "AnDinh": {
+    "AnNinh": {
         "local_h": "H_MyTho_Value",
         "tide_h": "H_VamKenh_Value",
         "rain": "rain_MyTho_Value",

@@ -1,4 +1,4 @@
-"""Prepare cleaned per-station datasets from raw CSVs."""
+"""Prepare cleaned per-station datasets from raw CSVs :-)."""
 
 import re
 from pathlib import Path
@@ -6,6 +6,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+
+## Setting up the directory paths
 BASE_DIR = Path(__file__).resolve().parents[1]
 
 RAW_DIR = BASE_DIR / "data" / "raw"
@@ -23,6 +25,7 @@ SALINITY_FILE = RAW_DIR / "salinity_all_stations.csv"
 SALINITY_TIME_COL = "datetime"
 
 
+## Getting the name of the station from the filw name :)
 def infer_station_id_from_filename(filename: str) -> str:
     stem = Path(filename).stem
 
@@ -36,7 +39,7 @@ def infer_station_id_from_filename(filename: str) -> str:
 
     return stem
 
-
+## Getting the paths for the sub folders :)
 SALINITY_DIR = RAW_DIR / "Hourly_Salinity_Time_Series_44stations"
 Q_DIR = RAW_DIR / "Q"
 WL_DIR = RAW_DIR / "WL"
@@ -63,6 +66,8 @@ if PRE_DIR.exists():
         key = f"rain_{sid}"
         RAIN_FILES[key] = path
 
+
+# Trying to resample 
 AGG_MAP = {
     "salinity": "mean",
     "discharge": "mean",
@@ -70,11 +75,12 @@ AGG_MAP = {
     "rain": "sum",
 }
 
+## Making the physical ranges for the data
 PHYSICAL_RANGES = {
-    "salinity": (0.0, 60.0),
-    "discharge": (0.0, 50000.0),
-    "tide": (-5.0, 5.0),
-    "rain": (0.0, 500.0),
+    "salinity": (0.0, 50.0),
+    "discharge": (0.0, 20000.0),
+    "tide": (-3.0, 6.0),
+    "rain": (0.0, 490.0),
 }
 
 SALINITY_STATION_COLS = None
@@ -98,7 +104,7 @@ def prepare_timeseries(df: pd.DataFrame, time_col: str | None, time_step: str, a
                 col = candidates[0]
 
     if col is not None and col in df.columns:
-        df[col] = pd.to_datetime(df[col], errors="coerce")
+        df[col] = pd.to_datetime(df[col], errors="coerce", format="mixed")
         df = df.dropna(subset=[col])
         df = df.set_index(col)
     elif isinstance(df.index, pd.DatetimeIndex):
@@ -166,16 +172,18 @@ def missing_summary(df: pd.DataFrame, label: str = "") -> pd.DataFrame:
     return summary
 
 
+## Fill in the wholes in the data
 def interpolate_short_gaps(df: pd.DataFrame, limit: int = 3) -> pd.DataFrame:
     if not isinstance(df.index, pd.DatetimeIndex):
-        raise TypeError("interpolate_short_gaps expects a DataFrame with a DatetimeIndex.")
+        raise TypeError("interpolate_short_gaps expects a DataFrame with a DatetimeIndex")
 
-    df_interp = df.copy()
+    df_interp = df.copy() 
 
     for col in df_interp.columns:
         series = df_interp[col]
-        if not np.issubdtype(series.dtype, np.number):
+        if not np.issubdtype(series.dtype, np.number):##Get the next right with floats in it
             continue
+        ## Find the shot gaps and fill then with numbers halfway between the values
         df_interp[col] = series.interpolate(
             method="time",
             limit=limit,
@@ -186,21 +194,22 @@ def interpolate_short_gaps(df: pd.DataFrame, limit: int = 3) -> pd.DataFrame:
 
 
 
-if SALINITY_FILE.exists():
-    print(f"Loading wide salinity file from {SALINITY_FILE}")
+if SALINITY_FILE.exists(): ## If it exsists load it in
+    print(f"Loading big salinity file from {SALINITY_FILE}")
     salinity_raw = pd.read_csv(SALINITY_FILE)
+
 else:
     salinity_dir = SALINITY_DIR
     if not salinity_dir.exists():
         raise FileNotFoundError(
-            f"Could not find salinity file {SALINITY_FILE} or directory {salinity_dir}. "
-            "Please update SALINITY_FILE or RAW_DIR."
+            f"Can't find salinity file {SALINITY_FILE} or directory {salinity_dir}. "
+            "Please update SALINITY_FILE or RAW_DIR :)"
         )
 
-    print(f"Building wide salinity table from per-station files in {salinity_dir}")
+    print(f"Building big salinity table from per-station files in {salinity_dir}")
     sal_frames = []
-    for path in sorted(salinity_dir.glob("*.csv")):
-        station_id = infer_station_id_from_filename(path.name)
+    for path in sorted(salinity_dir.glob("*.csv")): ## Every god dam file
+        station_id = infer_station_id_from_filename(path.name) ## Getting the station name
         df_station = pd.read_csv(path)
         if SALINITY_TIME_COL not in df_station.columns:
             raise KeyError(f"Expected time column '{SALINITY_TIME_COL}' in {path.name}")
@@ -209,6 +218,7 @@ else:
         if not value_cols:
             raise ValueError(f"No value columns found in {path.name}")
 
+## Getting the salinity values through the first float column.....
         numeric_candidates = [
             c for c in value_cols if np.issubdtype(df_station[c].dtype, np.number)
         ]
@@ -222,12 +232,13 @@ else:
     if not sal_frames:
         raise RuntimeError(f"No CSV files found in {salinity_dir}")
 
+## Throws them all together by the date time column
     salinity_raw = sal_frames[0]
     for df_station in sal_frames[1:]:
         salinity_raw = salinity_raw.merge(df_station, on=SALINITY_TIME_COL, how="outer")
 
 if SALINITY_TIME_COL not in salinity_raw.columns:
-    raise KeyError(f"Expected time column '{SALINITY_TIME_COL}' in salinity data.")
+    raise KeyError(f"Expected time column '{SALINITY_TIME_COL}' in salinity data")
 
 metadata_candidates = {
     SALINITY_TIME_COL.lower(),
@@ -241,14 +252,16 @@ SALINITY_STATION_COLS = [
     if col.lower() not in metadata_candidates
 ]
 
-print("Detected salinity station columns:")
+print("Found salinity station columns:")
 print(SALINITY_STATION_COLS)
 print(f"\nRaw salinity shape: {salinity_raw.shape}")
 print(salinity_raw.head())
 
+
+## The rest of the data types
 discharge_raw = {}
 if not DISCHARGE_FILES:
-    print("\nNo discharge files detected. DISCHARGE_FILES is empty.")
+    print("\nNo discharge files detected. DISCHARGE_FILES is empty:-O")
 else:
     for name, path in DISCHARGE_FILES.items():
         if not Path(path).exists():
@@ -286,7 +299,7 @@ else:
         print(df.head())
 
 
-
+## The resampling to the same god dam time step
 salinity_cols = [SALINITY_TIME_COL] + SALINITY_STATION_COLS
 salinity_ts = prepare_timeseries(
     salinity_raw[salinity_cols],
@@ -332,7 +345,7 @@ for name, df_raw in rain_raw.items():
 
 
 salinity_clean = clip_and_nan(salinity_ts, col_type="salinity")
-_ = missing_summary(salinity_clean, label="salinity (after range checks, no interpolation)")
+_ = missing_summary(salinity_clean, label="salinity (after range checks and stuff)")
 
 discharge_qc = {}
 for name, df_ts in discharge_ts.items():
@@ -351,7 +364,7 @@ for name, df_ts in rain_ts.items():
 
 
 
-
+## Filling of the wholes   :)
 discharge_clean = {}
 for name, df_qc in discharge_qc.items():
     df_clean = interpolate_short_gaps(df_qc, limit=3)
@@ -383,7 +396,7 @@ for name, df_qc in rain_qc.items():
     _ = missing_summary(df_clean, label=f"rain '{name}' (clean, interpolated)")
 
 
-
+## Input features matrix cereation
 common_index = salinity_clean.index
 X_inputs = pd.DataFrame(index=common_index)
 
@@ -401,6 +414,8 @@ X_inputs = X_inputs.dropna(how="all")
 print(f"Input feature matrix shape after merging: {X_inputs.shape}")
 print(X_inputs.head())
 
+
+## Building the perstation datasets
 station_data = {}
 station_summaries = []
 
@@ -408,13 +423,15 @@ for station in SALINITY_STATION_COLS:
     sal_series = salinity_clean[station]
 
     n_before = len(sal_series)
-    pct_missing_before = sal_series.isna().mean() * 100 if n_before > 0 else np.nan
+    pct_missing_before = sal_series.isna().mean() * 100 if n_before > 0 else np.nan ## How much of the shits missing
 
     df_station = pd.DataFrame(index=salinity_clean.index)
     df_station["salinity"] = sal_series
 
+## Only join the ones with the same time stamp
     df_station = df_station.join(X_inputs, how="inner")
 
+## No salinity no lighty
     df_station = df_station.dropna(subset=["salinity"])
 
     station_data[station] = df_station
@@ -422,6 +439,7 @@ for station in SALINITY_STATION_COLS:
     n_after = len(df_station)
     input_cols = [c for c in df_station.columns if c != "salinity"]
     if n_after > 0 and input_cols:
+        ## How much of this shits missing 
         pct_missing_inputs_after = df_station[input_cols].isna().mean().mean() * 100
     else:
         pct_missing_inputs_after = np.nan
@@ -444,7 +462,7 @@ if station_data:
     print(station_data[first_station].head())
 
 
-
+## Save down the cleaned station datasets
 for station, df_station in station_data.items():
     safe_station = "".join(
         c if c.isalnum() or c in ("-", "_") else "_"
@@ -461,7 +479,7 @@ if not summary_df.empty:
     summary_df["end_after"] = summary_df["end_after"].dt.strftime("%Y-%m-%d %H:%M:%S")
     summary_df = summary_df.set_index("station")
 
-    print("\nOverview of per-station datasets (before/after cleaning):")
+    print("\nOverview of per-station datasets (before vs after cleaning):")
     print(summary_df[[
         "n_before",
         "pct_missing_salinity_before",

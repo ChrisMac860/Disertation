@@ -19,3 +19,4 @@ data/
 !data/.gitkeep
 reports/
 !reports/.gitkeep
+node_modules
